@@ -7,9 +7,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Configuration
-// Cloudflare Pages usually runs in the root, so __dirname is safe.
-const COMICS_DIR = path.join(__dirname, 'comics');
-const OUTPUT_FILE = path.join(__dirname, 'manifest.json');
+const DIST_DIR = path.join(__dirname, 'dist');
+const COMICS_SRC_DIR = path.join(__dirname, 'comics');
+const COMICS_DEST_DIR = path.join(DIST_DIR, 'comics');
+const MANIFEST_FILENAME = 'manifest.json';
 const ALLOWED_EXTS = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif'];
 
 // Helper for natural sorting (Chapter 1, Chapter 2, Chapter 10)
@@ -20,25 +21,26 @@ const naturalSort = (a, b) => {
 function scanComics() {
     console.log('📚 Scanning comics directory...');
 
-    // 1. Check if directory exists
-    if (!fs.existsSync(COMICS_DIR)) {
+    // 1. Check if source directory exists
+    if (!fs.existsSync(COMICS_SRC_DIR)) {
         console.log('⚠️ Comics directory not found. Creating empty manifest.');
-        // If the user hasn't uploaded comics yet, we don't want the build to fail.
-        // We just create an empty manifest.
-        fs.writeFileSync(OUTPUT_FILE, JSON.stringify([]));
+        // Create dist if it doesn't exist (e.g. if build failed or strictly scanning)
+        if (!fs.existsSync(DIST_DIR)) fs.mkdirSync(DIST_DIR, { recursive: true });
+        
+        fs.writeFileSync(path.join(DIST_DIR, MANIFEST_FILENAME), JSON.stringify([]));
         return;
     }
 
     const comics = [];
     
     // 2. Read Comic Directories
-    const comicFolders = fs.readdirSync(COMICS_DIR).filter(f => {
-        try { return fs.statSync(path.join(COMICS_DIR, f)).isDirectory(); }
+    const comicFolders = fs.readdirSync(COMICS_SRC_DIR).filter(f => {
+        try { return fs.statSync(path.join(COMICS_SRC_DIR, f)).isDirectory(); }
         catch (e) { return false; }
     });
 
     comicFolders.forEach(comicTitle => {
-        const comicPath = path.join(COMICS_DIR, comicTitle);
+        const comicPath = path.join(COMICS_SRC_DIR, comicTitle);
         
         // 3. Find Cover Image
         let coverUrl = 'https://placehold.co/600x900/18181b/ffffff?text=No+Cover';
@@ -46,7 +48,7 @@ function scanComics() {
             const files = fs.readdirSync(comicPath);
             const coverFile = files.find(f => f.toLowerCase().startsWith('cover.'));
             if (coverFile) {
-                // IMPORTANT: Cloudflare Pages serves static files relative to root
+                // URL path for the frontend
                 coverUrl = `/comics/${encodeURIComponent(comicTitle)}/${encodeURIComponent(coverFile)}`;
             }
         } catch (e) {
@@ -119,9 +121,30 @@ function scanComics() {
         }
     });
 
-    // 6. Write Manifest
-    fs.writeFileSync(OUTPUT_FILE, JSON.stringify(comics, null, 2));
-    console.log(`✅ Generated manifest.json with ${comics.length} comics.`);
+    // 6. PREPARE DEPLOYMENT ASSETS
+    console.log('📦 Preparing assets for deployment...');
+    
+    // Ensure dist directory exists (it should after 'vite build')
+    if (!fs.existsSync(DIST_DIR)) {
+        fs.mkdirSync(DIST_DIR, { recursive: true });
+    }
+
+    // Write manifest to dist
+    const manifestPath = path.join(DIST_DIR, MANIFEST_FILENAME);
+    fs.writeFileSync(manifestPath, JSON.stringify(comics, null, 2));
+    console.log(`✅ Manifest generated at: ${manifestPath}`);
+
+    // Copy comics folder to dist/comics
+    // fs.cpSync is available in Node 16.7+
+    if (fs.existsSync(COMICS_SRC_DIR)) {
+        console.log(`📂 Copying comics to build folder (${COMICS_DEST_DIR})...`);
+        try {
+            fs.cpSync(COMICS_SRC_DIR, COMICS_DEST_DIR, { recursive: true, force: true });
+            console.log('✅ Comics copied successfully.');
+        } catch (e) {
+            console.error('❌ Failed to copy comics folder:', e);
+        }
+    }
 }
 
 scanComics();
