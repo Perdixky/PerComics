@@ -1,5 +1,10 @@
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// ES Module fix for __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Configuration
 // Cloudflare Pages usually runs in the root, so __dirname is safe.
@@ -48,7 +53,7 @@ function scanComics() {
             console.error(`Error reading comic folder: ${comicTitle}`, e);
         }
 
-        // 4. Read Metadata (meta.json) - NEW FEATURE
+        // 4. Read Metadata (meta.json)
         let meta = {};
         try {
             const metaPath = path.join(comicPath, 'meta.json');
