@@ -1,15 +1,5 @@
 {
-  "name": "zenith-manga-reader",
+  "name": "per-comics",
   "pages_build_output_dir": "./dist",
-  "compatibility_date": "2025-12-01",
-  "pages": {
-    "routes": [
-      {
-        "pattern": "/*",
-        "custom": {
-          "cache": true
-        }
-      }
-    ]
-  }
+  "compatibility_date": "2025-12-01"
 }
