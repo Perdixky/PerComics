@@ -8,6 +8,7 @@ const __dirname = path.dirname(__filename);
 
 // Configuration
 const DIST_DIR = path.join(__dirname, 'dist');
+const PUBLIC_DIR = path.join(__dirname, 'public');
 const COMICS_SRC_DIR = path.join(__dirname, 'comics');
 const COMICS_DEST_DIR = path.join(DIST_DIR, 'comics');
 const MANIFEST_FILENAME = 'manifest.json';
@@ -121,28 +122,46 @@ function scanComics() {
         }
     });
 
-    // 6. PREPARE DEPLOYMENT ASSETS
-    console.log('📦 Preparing assets for deployment...');
-    
-    // Ensure dist directory exists (it should after 'vite build')
-    if (!fs.existsSync(DIST_DIR)) {
-        fs.mkdirSync(DIST_DIR, { recursive: true });
+    // 6. PREPARE ASSETS FOR BOTH DEV AND PRODUCTION
+    console.log('📦 Preparing assets...');
+
+    const manifestContent = JSON.stringify(comics, null, 2);
+
+    // Write manifest to PUBLIC (for dev mode)
+    if (!fs.existsSync(PUBLIC_DIR)) {
+        fs.mkdirSync(PUBLIC_DIR, { recursive: true });
+    }
+    const publicManifestPath = path.join(PUBLIC_DIR, MANIFEST_FILENAME);
+    fs.writeFileSync(publicManifestPath, manifestContent);
+    console.log(`✅ Manifest generated for dev: ${publicManifestPath}`);
+
+    // Copy comics to public/comics (for dev mode)
+    if (fs.existsSync(COMICS_SRC_DIR)) {
+        const publicComicsDir = path.join(PUBLIC_DIR, 'comics');
+        console.log(`📂 Copying comics to public folder (for dev mode)...`);
+        try {
+            fs.cpSync(COMICS_SRC_DIR, publicComicsDir, { recursive: true, force: true });
+            console.log('✅ Comics copied to public.');
+        } catch (e) {
+            console.error('❌ Failed to copy comics to public:', e);
+        }
     }
 
-    // Write manifest to dist
-    const manifestPath = path.join(DIST_DIR, MANIFEST_FILENAME);
-    fs.writeFileSync(manifestPath, JSON.stringify(comics, null, 2));
-    console.log(`✅ Manifest generated at: ${manifestPath}`);
+    // Write manifest to DIST (for production build)
+    if (fs.existsSync(DIST_DIR)) {
+        const distManifestPath = path.join(DIST_DIR, MANIFEST_FILENAME);
+        fs.writeFileSync(distManifestPath, manifestContent);
+        console.log(`✅ Manifest generated for production: ${distManifestPath}`);
 
-    // Copy comics folder to dist/comics
-    // fs.cpSync is available in Node 16.7+
-    if (fs.existsSync(COMICS_SRC_DIR)) {
-        console.log(`📂 Copying comics to build folder (${COMICS_DEST_DIR})...`);
-        try {
-            fs.cpSync(COMICS_SRC_DIR, COMICS_DEST_DIR, { recursive: true, force: true });
-            console.log('✅ Comics copied successfully.');
-        } catch (e) {
-            console.error('❌ Failed to copy comics folder:', e);
+        // Copy comics to dist/comics (for production)
+        if (fs.existsSync(COMICS_SRC_DIR)) {
+            console.log(`📂 Copying comics to dist folder (for production)...`);
+            try {
+                fs.cpSync(COMICS_SRC_DIR, COMICS_DEST_DIR, { recursive: true, force: true });
+                console.log('✅ Comics copied to dist.');
+            } catch (e) {
+                console.error('❌ Failed to copy comics to dist:', e);
+            }
         }
     }
 }

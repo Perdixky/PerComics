@@ -4,8 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "node scan_comics.js && vite",
+    "build": "vite build && node scan_comics.js",
     "preview": "vite preview"
   },
   "dependencies": {

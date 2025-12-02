@@ -130,11 +130,11 @@ export const ReaderView: React.FC<ReaderViewProps> = ({
         <div className="flex flex-col">
           {chapter.pages.map((page, index) => (
             <div key={page.id} className="w-full relative">
-              <ImageLoader 
-                src={page.url} 
-                alt={`Page ${page.pageNumber}`} 
+              <ImageLoader
+                src={page.url}
+                alt={`Page ${page.pageNumber}`}
                 aspectRatio="aspect-[2/3]" // Assuming portrait pages mostly
-                priority={index < 2} // Preload first 2 pages immediately
+                priority={true} // Load all pages immediately
                 className="w-full shadow-2xl bg-zinc-950"
               />
               <div className="absolute right-2 top-2 bg-black/50 backdrop-blur px-2 py-0.5 rounded text-[10px] text-zinc-400 opacity-50 hover:opacity-100 transition-opacity">
