@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { sortChapters, generateChapterNumber } from './aiChapterSorter.js';
 
 // ES Module fix for __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -19,7 +20,7 @@ const naturalSort = (a, b) => {
     return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
 };
 
-function scanComics() {
+async function scanComics() {
     console.log('📚 Scanning comics directory...');
 
     // 1. Check if source directory exists
@@ -33,14 +34,14 @@ function scanComics() {
     }
 
     const comics = [];
-    
+
     // 2. Read Comic Directories
     const comicFolders = fs.readdirSync(COMICS_SRC_DIR).filter(f => {
         try { return fs.statSync(path.join(COMICS_SRC_DIR, f)).isDirectory(); }
         catch (e) { return false; }
     });
 
-    comicFolders.forEach(comicTitle => {
+    for (const comicTitle of comicFolders) {
         const comicPath = path.join(COMICS_SRC_DIR, comicTitle);
         
         // 3. Find Cover Image
@@ -68,18 +69,26 @@ function scanComics() {
             console.warn(`Warning: Could not read meta.json for ${comicTitle}`, e.message);
         }
 
-        // 5. Find Chapters
+        // 5. Find Chapters (AI-Powered Sorting)
         const chapters = [];
         try {
+            // Get all chapter folders
             const chapterFolders = fs.readdirSync(comicPath)
                 .filter(f => {
                     try { return fs.statSync(path.join(comicPath, f)).isDirectory(); }
                     catch (e) { return false; }
-                })
-                .sort(naturalSort)
-                .reverse(); // Standard Manga Sort: Latest chapter at top
+                });
 
-            chapterFolders.forEach((chapterTitle, index) => {
+            // Use cluster-based sorting
+            console.log(`   📖 Sorting ${chapterFolders.length} chapters for "${comicTitle}"...`);
+            const sortedChapters = sortChapters(chapterFolders, {
+                reverseOrder: true,  // Latest chapter at top
+                showProgress: false  // Don't show detailed progress for each comic
+            });
+
+            // Build chapter objects with pages
+            sortedChapters.forEach((chapterInfo, index) => {
+                const chapterTitle = chapterInfo.originalName;
                 const chapterPath = path.join(comicPath, chapterTitle);
                 try {
                     const pages = fs.readdirSync(chapterPath)
@@ -95,12 +104,17 @@ function scanComics() {
                         chapters.push({
                             id: `${comicTitle}-${chapterTitle}`,
                             title: chapterTitle,
-                            number: chapterFolders.length - index, // Estimate chapter number based on folder count
-                            pages: pages
+                            number: generateChapterNumber(chapterInfo, index), // Smart chapter numbering
+                            pages: pages,
+                            // Add metadata from pattern parsing
+                            _meta: {
+                                pattern: chapterInfo.pattern,
+                                type: chapterInfo.type
+                            }
                         });
                     }
                 } catch (e) {
-                    console.error(`Error reading chapter: ${chapterTitle}`, e);
+                    console.error(`   ❌ Error reading chapter: ${chapterTitle}`, e);
                 }
             });
 
@@ -120,7 +134,7 @@ function scanComics() {
         } catch (e) {
             console.error(`Error processing chapters for: ${comicTitle}`, e);
         }
-    });
+    }
 
     // 6. PREPARE ASSETS FOR BOTH DEV AND PRODUCTION
     console.log('📦 Preparing assets...');
@@ -166,4 +180,8 @@ function scanComics() {
     }
 }
 
-scanComics();
+// Run the scanner
+scanComics().catch(error => {
+    console.error('❌ Failed to scan comics:', error);
+    process.exit(1);
+});
